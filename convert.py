@@ -1,4 +1,5 @@
 # Copyright (C) 2010  Alex Yatskov
+# Copyright (C) 2011  Braden Shepherdson
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,82 +15,51 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-from PyQt4 import QtGui, QtCore
-
+import sys
 import image
 
+def convertPage(book, index):
+    directory = os.path.join(unicode(book.directory), unicode(book.title))
+    target = os.path.join(directory, '%05d.png' % index)
+    source = unicode(book.images[index])
 
-class DialogConvert(QtGui.QProgressDialog):
-    def __init__(self, parent, book, directory):
-        QtGui.QProgressDialog.__init__(self)
-
-        self.book = book
-        self.directory = directory
-
-        self.timer = None
-        self.setWindowTitle('Exporting book...')
-        self.setMaximum(len(self.book.images))
-        self.setValue(0)
-
-
-    def showEvent(self, event):
-        if self.timer == None:
-            self.timer = QtCore.QTimer()
-            self.connect(self.timer, QtCore.SIGNAL('timeout()'), self.onTimer)
-            self.timer.start(0)
-
-
-    def onTimer(self):
-        index = self.value()
-        directory = os.path.join(unicode(self.directory), unicode(self.book.title))
-        target = os.path.join(directory, '%05d.png' % index)
-        source = unicode(self.book.images[index])
-
-        if index == 0:
-            try:
-                if not os.path.isdir(directory):
-                    os.makedirs(directory)
-            except OSError:
-                QtGui.QMessageBox.critical(self, 'Mangle', 'Cannot create directory %s' % directory)
-                self.close()
-                return
-
-            try:
-                base = os.path.join(directory, unicode(self.book.title))
-
-                mangaName = base + '.manga'
-                if self.book.overwrite or not os.path.isfile(mangaName):
-                    manga = open(mangaName, 'w')
-                    manga.write('\x00')
-                    manga.close()
-
-                mangaSaveName = base + '.manga_save'
-                if self.book.overwrite or not os.path.isfile(mangaSaveName):
-                    mangaSave = open(base + '.manga_save', 'w')
-                    saveData = u'LAST=/mnt/us/pictures/%s/%s' % (self.book.title, os.path.split(target)[1])
-                    mangaSave.write(saveData.encode('utf-8'))
-                    mangaSave.close()
-
-            except IOError:
-                QtGui.QMessageBox.critical(self, 'Mangle', 'Cannot write manga file(s) to directory %s' % directory)
-                self.close()
-                return False
-
-        self.setLabelText('Processing %s...' % os.path.split(source)[1])
+    if index == 0:
+        try:
+            if not os.path.isdir(directory):
+                os.makedirs(directory)
+        except OSError:
+            print('Cannot create directory %s' % directory)
+            sys.exit(1)
+            return
 
         try:
-            if self.book.overwrite or not os.path.isfile(target):
-                image.convertImage(source, target, str(self.book.device), self.book.imageFlags)
-        except RuntimeError, error:
-            result = QtGui.QMessageBox.critical(
-                self,
-                'Mangle',
-                str(error),
-                QtGui.QMessageBox.Abort | QtGui.QMessageBox.Ignore,
-                QtGui.QMessageBox.Ignore
-            )
-            if result == QtGui.QMessageBox.Abort:
-                self.close()
-                return
+            base = os.path.join(directory, unicode(book.title))
 
-        self.setValue(index + 1)
+            mangaName = base + '.manga'
+            if book.overwrite or not os.path.isfile(mangaName):
+                manga = open(mangaName, 'w')
+                manga.write('\x00')
+                manga.close()
+
+            mangaSaveName = base + '.manga_save'
+            if book.overwrite or not os.path.isfile(mangaSaveName):
+                mangaSave = open(base + '.manga_save', 'w')
+                saveData = u'LAST=/mnt/us/pictures/%s/%s' % (book.title, os.path.split(target)[1])
+                mangaSave.write(saveData.encode('utf-8'))
+                mangaSave.close()
+
+        except IOError:
+            print('Cannot write mange file(s) to directory %s' % directory)
+            sys.exit(1)
+            return False
+
+    print('Converting %d of %d: %s' % (index+1, len(book.images), source))
+
+    try:
+        if book.overwrite or not os.path.isfile(target):
+            image.convertImage(source, target, str(book.device), book.imageFlags)
+    except RuntimeError, error:
+        print('Encountered an error: %s' % error)
+        sys.exit(1)
+        return
+
