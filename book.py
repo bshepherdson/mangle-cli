@@ -362,8 +362,11 @@ class MainWindowBook(QtGui.QMainWindow, Ui_MainWindowBook):
     def addImageDirs(self, directories):
         filenames = []
 
+        directories.sort()
         for directory in directories:
             for root, subdirs, subfiles in os.walk(unicode(directory)):
+                subfiles.sort()
+                subdirs.sort()
                 for filename in subfiles:
                     path = os.path.join(root, filename)
                     if self.isImageFile(path):
